@@ -1,4 +1,5 @@
 ﻿using ScottPlot;
+using ScottPlot.Palettes;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -39,9 +40,9 @@ namespace SolarHouseSimulator
             }
         }
 
-        private Dictionary<DateTime, double> LoadAndSumPvgisFiles(string[] filePaths)
+        private Dictionary<DateTime, (double Power, double Temp, int Count)> LoadAndSumPvgisFiles(string[] filePaths)
         {
-            var combined = new Dictionary<DateTime, double>();
+            var combined = new Dictionary<DateTime, (double Power, double Temp, int Count)>();
 
             foreach (var path in filePaths)
             {
@@ -60,9 +61,14 @@ namespace SolarHouseSimulator
                     if (DateTime.TryParseExact(parts[0], "yyyyMMdd:HHmm", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dt))
                     {
                         double power = double.Parse(parts[1], CultureInfo.InvariantCulture); // Spalte 'P'
+                        double temp = double.Parse(parts[4], CultureInfo.InvariantCulture);  // Spalte 'T2m'
 
-                        if (combined.ContainsKey(dt)) combined[dt] += power;
-                        else combined[dt] = power;
+                        // Speichere beides (z.B. in einem Dictionary mit einem Struct oder Tuple)
+                        if (!combined.ContainsKey(dt))
+                            combined[dt] = (Power: 0.0, Temp: 0.0, Count: 0);
+
+                        var current = combined[dt];
+                        combined[dt] = (current.Power + power, current.Temp + temp, current.Count + 1);
                     }
                 }
             }
@@ -91,6 +97,36 @@ namespace SolarHouseSimulator
             return result;
         }
 
+        public bool IsSommer(DateTime time)
+        {
+            // April (4) bis August (8) inklusiv
+            return time.Month >= 4 && time.Month <= 8;
+        }
+
+        public double GetHeatPumpElectricalLoad(double tempOutside, double tempTarget = 21.0)
+        {
+            if (tempOutside >= 16.0) return 0; // Heizgrenze: Über 16°C bleibt die WP aus
+
+            // 1. Thermischer Bedarf des Hauses (Watt_thermisch)
+            // H_T Wert für Model Fjord ca. 120 W/K
+            double thermalNeedWatt = (tempTarget - tempOutside) * 120.0;
+
+            // 2. COP Berechnung (Coefficient of Performance)
+            // Die LG Therma V HM071MRS hat bei A7/W35 einen COP von ca. 4.5
+            // Bei -7°C sinkt er auf ca. 2.5. Wir nähern das linear an:
+            double cop = 3.0 + (tempOutside * 0.1);
+            cop = Clamp(cop, 1.8, 5.0); // Sicherheitsgrenzen für den COP
+
+            // 3. Elektrische Last = Thermischer Bedarf / COP
+            double electricalLoad = thermalNeedWatt / cop;
+
+            // Mindestlast/Taktung: Die WP moduliert, hat aber eine Untergrenze (ca. 400W)
+            if (electricalLoad < 400) electricalLoad = 400;
+
+            // Maximale elektrische Aufnahme der 7kW Klasse liegt bei ca. 2.5 - 3 kW
+            return Math.Min(electricalLoad, 3000.0);
+        }
+
         private void RunPvgisSimulationAndPlot(string[] filePaths)
         {
             // 1. Daten laden und summieren
@@ -101,73 +137,131 @@ namespace SolarHouseSimulator
             List<double> xs = new List<double>();
             List<double> ysSolarKw = new List<double>();
             List<double> ysBatteryPct = new List<double>();
+            List<double> ysTemp = new List<double>();
 
             // Simulations-Variablen
             double batteryWh = 15000; // Start 50%
             double maxBatteryWh = 30000;
+            double totalPelletsKg = 0;
+
+            List<double> ysOfenKw = new List<double>();
 
             foreach (var time in sortedTimes)
             {
-                double solarWatt = solarData[time];
-                double loadWatt = GetHouseLoadWatt(time); // Deine Funktion
+                var data = solarData[time];
 
-                // Simulation (Stunden-Intervall)
-                double deltaWh = solarWatt - loadWatt;
-                batteryWh += deltaWh;
+                // FIX: solarWatt aus dem Tuple extrahieren
+                double solarWatt = data.Power;
 
-                if (batteryWh > maxBatteryWh) batteryWh = maxBatteryWh;
-                if (batteryWh < 0) batteryWh = 0;
+                double avgTemp = data.Temp / data.Count;
+                double baseLoad = GetHouseLoadWatt(time);
+                double wpLoad = GetHeatPumpElectricalLoad(avgTemp);
 
-                // Daten zu Listen hinzufügen
+                double ofenLeistungWatt = 0;
+                bool istOfenZeit = time.Hour >= 8 && time.Hour < 20;
+                bool brauchtWaerme = (avgTemp < 5.0 || batteryWh < (maxBatteryWh * 0.5));
+
+                // Nachtabsenkung einbauen
+                double currentTargetTemp = 21.0; // Tagsüber aufheizen, nachts absenken
+
+                if (brauchtWaerme)
+                {
+                    wpLoad = 0;
+                    // Der Ofen heizt das Haus auf 23 Grad (Speicher füllen)
+                    double thermalNeedWatt = (currentTargetTemp - avgTemp) * 120.0;
+                    ofenLeistungWatt = Math.Min(thermalNeedWatt * 2.5, 10000.0);
+                    totalPelletsKg += (ofenLeistungWatt / 4300.0);
+                }
+                else
+                {
+                    // Nachts: Wärmepumpe läuft nur, wenn es unter 18 Grad fällt (Nachtabsenkung)
+                    wpLoad = GetHeatPumpElectricalLoad(avgTemp, currentTargetTemp);
+                }
+
+                // 1. Differenz berechnen (PV - (Haus + Wärmepumpe))
+                // HIER wurde solarWatt vorher vermisst:
+                double deltaWh = solarWatt - (baseLoad + wpLoad);
+
+                // 2. Akku Update (1h Intervall)
+                batteryWh = Clamp(batteryWh + deltaWh, 0, maxBatteryWh);
+
+                // 3. Listen befüllen
                 xs.Add(time.ToOADate());
                 ysSolarKw.Add(solarWatt / 1000.0);
+                ysOfenKw.Add(ofenLeistungWatt / 1000.0);
                 ysBatteryPct.Add((batteryWh / maxBatteryWh) * 100.0);
+                ysTemp.Add(avgTemp);
             }
+
+            double tonnen = totalPelletsKg / 1000.0;
+            double volumenM3 = tonnen * 1.5; // 1 Tonne Pellets braucht ca. 1,5 m³ Platz
+
+            MessageBox.Show($"Simulation abgeschlossen:\n" +
+                            $"Pelletverbrauch: {tonnen:F2} Tonnen\n" +
+                            $"Lagerplatz-Bedarf: {volumenM3:F1} m³");
 
             // 3. Gleitender Mittelwert berechnen (Fenster: 24 Stunden)
             double[] solarMovingAvg = CalculateMovingAverage(ysSolarKw.ToArray(), 24);
 
-            // 1. Alles Vorherige löschen
-            formsPlot.Plot.Clear();
+            PlotEverything(xs, ysSolarKw, solarMovingAvg ,ysBatteryPct, ysTemp, ysOfenKw);
+        }
 
-            // 2. Zeit-Achse (X) vorbereiten
+        private void PlotEverything(List<double> xs, List<double> ysSolar, double[] ysSolarAvg, List<double> ysBattery, List<double> ysTemp, List<double> ysOfen)
+        {
+            formsPlot.Plot.Clear();
             double[] xsArray = xs.ToArray();
 
-            // 3. Solar-Kurve (Linke Achse)
-            var solarPlot = formsPlot.Plot.Add.Scatter(xsArray, ysSolarKw.ToArray());
-            solarPlot.LegendText = "PV Leistung (kW)";
-            solarPlot.Color = ScottPlot.Colors.Blue.WithAlpha(0.3);
-            solarPlot.Axes.YAxis = formsPlot.Plot.Axes.Left; // Explizit Links
+            // --- LINKE ACHSE (kW) ---
+            // 1. PV Echtzeit (Hellblau)
+            var sPlot = formsPlot.Plot.Add.Scatter(xsArray, ysSolar.ToArray());
+            sPlot.LegendText = "PV Echtzeit (kW)";
+            sPlot.Color = ScottPlot.Colors.Blue.WithAlpha(0.2);
+            sPlot.Axes.YAxis = formsPlot.Plot.Axes.Left;
 
-            // 4. Mittelwert-Kurve (Linke Achse)
-            var avgPlot = formsPlot.Plot.Add.Scatter(xsArray, solarMovingAvg);
+            // 2. Tagesmittel (Gold, dick)
+            var avgPlot = formsPlot.Plot.Add.Scatter(xsArray, ysSolarAvg);
             avgPlot.LegendText = "Tagesmittel (kW)";
             avgPlot.Color = ScottPlot.Colors.Gold;
-            avgPlot.LineWidth = 2;
-            avgPlot.Axes.YAxis = formsPlot.Plot.Axes.Left; // Explizit Links
+            avgPlot.LineWidth = 3;
+            avgPlot.Axes.YAxis = formsPlot.Plot.Axes.Left;
 
-            // 5. Akku-Kurve (Rechte Achse)
-            var batteryPlot = formsPlot.Plot.Add.Scatter(xsArray, ysBatteryPct.ToArray());
-            batteryPlot.LegendText = "Akku (%)";
-            batteryPlot.Color = ScottPlot.Colors.Red;
-            batteryPlot.Axes.YAxis = formsPlot.Plot.Axes.Right; // Explizit Rechts
+            // --- RECHTE ACHSE (% / °C) ---
+            // 3. Temperatur (Grau, dünn im Hintergrund)
+            var tPlot = formsPlot.Plot.Add.Scatter(xsArray, ysTemp.ToArray());
+            tPlot.LegendText = "Temp (°C)";
+            tPlot.Color = ScottPlot.Colors.Gray.WithAlpha(0.5);
+            tPlot.LineWidth = 1;
+            tPlot.Axes.YAxis = formsPlot.Plot.Axes.Right;
 
-            // 6. ACHSEN-LOGIK (Stabilisiert)
-            // X-Achse auf Zeit umstellen
+            // 4. Akku Stand (Rot, kräftig)
+            var bPlot = formsPlot.Plot.Add.Scatter(xsArray, ysBattery.ToArray());
+            bPlot.LegendText = "Akku (%)";
+            bPlot.Color = ScottPlot.Colors.Red;
+            bPlot.LineWidth = 2;
+            bPlot.Axes.YAxis = formsPlot.Plot.Axes.Right;
+
+            // 3. Pelletofen Leistung (Links, kW thermisch)
+            // Wir nutzen hier ein "FillY" oder eine Area-Chart, damit es sich abhebt
+            var ofenPlot = formsPlot.Plot.Add.Scatter(xsArray, ysOfen.ToArray());
+            ofenPlot.LegendText = "Ofen Ein (kW th)";
+            ofenPlot.Color = ScottPlot.Colors.Orange.WithAlpha(0.4);
+            ofenPlot.LineWidth = 1;
+            // Wir füllen die Fläche unter der Kurve aus:
+            ofenPlot.FillY = true;
+            ofenPlot.Axes.YAxis = formsPlot.Plot.Axes.Left;
+
+            // --- ACHSEN-SETUP ---
             formsPlot.Plot.Axes.Bottom.TickGenerator = new ScottPlot.TickGenerators.DateTimeAutomatic();
-
-            // WICHTIG: Erst AutoScale für alle Achsen, dann spezifische Limits
             formsPlot.Plot.Axes.AutoScale();
 
-            // Jetzt nur die RECHTE Achse auf 0-100 pinnen (für die Prozentanzeige)
-            formsPlot.Plot.Axes.Right.Range.Min = 0;
-            formsPlot.Plot.Axes.Right.Range.Max = 105; // Etwas Puffer nach oben
-
-            // Beschriftungen aktivieren
-            formsPlot.Plot.Axes.Left.Label.Text = "PV Leistung [kW]";
-            formsPlot.Plot.Axes.Right.Label.Text = "Akku [%]";
-            // In ScottPlot 5 muss die rechte Achse oft explizit sichtbar geschaltet werden:
+            // Rechte Achse fixieren (frostsicher bis -20°C, oben bis 100%)
+            formsPlot.Plot.Axes.Right.Range.Min = -20;
+            formsPlot.Plot.Axes.Right.Range.Max = 105;
             formsPlot.Plot.Axes.Right.IsVisible = true;
+
+            // Labels
+            formsPlot.Plot.Axes.Left.Label.Text = "Leistung [kW]";
+            formsPlot.Plot.Axes.Right.Label.Text = "Akku [%] / Temp [°C]";
 
             formsPlot.Plot.ShowLegend();
             formsPlot.Refresh();
@@ -175,8 +269,14 @@ namespace SolarHouseSimulator
 
         public double GetHouseLoadWatt(DateTime time)
         {
+            bool isSommer = IsSommer(time);
             // Grundlast: 
             double load = (double)numericUpDownPower.Value;
+
+            if (isSommer)
+            {
+            }
+
             return load;
         }
 
