@@ -108,7 +108,7 @@
             this.numericUpDownBat.Size = new System.Drawing.Size(118, 20);
             this.numericUpDownBat.TabIndex = 5;
             this.numericUpDownBat.Value = new decimal(new int[] {
-            50000,
+            100000,
             0,
             0,
             0});

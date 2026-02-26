@@ -75,28 +75,6 @@ namespace SolarHouseSimulator
             return combined;
         }
 
-        private double[] CalculateMovingAverage(double[] data, int windowSize)
-        {
-            double[] result = new double[data.Length];
-            double sum = 0;
-
-            for (int i = 0; i < data.Length; i++)
-            {
-                sum += data[i];
-                if (i >= windowSize)
-                {
-                    sum -= data[i - windowSize];
-                    result[i] = sum / windowSize;
-                }
-                else
-                {
-                    // Während der Aufwärmphase des Fensters
-                    result[i] = sum / (i + 1);
-                }
-            }
-            return result;
-        }
-
         public bool IsSommer(DateTime time)
         {
             // April (4) bis August (8) inklusiv
@@ -120,9 +98,6 @@ namespace SolarHouseSimulator
             // 3. Elektrische Last = Thermischer Bedarf / COP
             double electricalLoad = thermalNeedWatt / cop;
 
-            // Mindestlast/Taktung: Die WP moduliert, hat aber eine Untergrenze (ca. 400W)
-            if (electricalLoad < 400) electricalLoad = 400;
-
             // Maximale elektrische Aufnahme der 7kW Klasse liegt bei ca. 2.5 - 3 kW
             return Math.Min(electricalLoad, 3000.0);
         }
@@ -140,8 +115,8 @@ namespace SolarHouseSimulator
             List<double> ysTemp = new List<double>();
 
             // Simulations-Variablen
-            double batteryWh = 15000; // Start 50%
-            double maxBatteryWh = 30000;
+            double batteryWh = (double)numericUpDownBat.Value / 2; // Start 50%
+            double maxBatteryWh = (double)numericUpDownBat.Value;
             double totalPelletsKg = 0;
 
             List<double> ysOfenKw = new List<double>();
@@ -157,26 +132,8 @@ namespace SolarHouseSimulator
                 double baseLoad = GetHouseLoadWatt(time);
                 double wpLoad = GetHeatPumpElectricalLoad(avgTemp);
 
-                double ofenLeistungWatt = 0;
                 bool istOfenZeit = time.Hour >= 8 && time.Hour < 20;
                 bool brauchtWaerme = (avgTemp < 5.0 || batteryWh < (maxBatteryWh * 0.5));
-
-                // Nachtabsenkung einbauen
-                double currentTargetTemp = 21.0; // Tagsüber aufheizen, nachts absenken
-
-                if (brauchtWaerme)
-                {
-                    wpLoad = 0;
-                    // Der Ofen heizt das Haus auf 23 Grad (Speicher füllen)
-                    double thermalNeedWatt = (currentTargetTemp - avgTemp) * 120.0;
-                    ofenLeistungWatt = Math.Min(thermalNeedWatt * 2.5, 10000.0);
-                    totalPelletsKg += (ofenLeistungWatt / 4300.0);
-                }
-                else
-                {
-                    // Nachts: Wärmepumpe läuft nur, wenn es unter 18 Grad fällt (Nachtabsenkung)
-                    wpLoad = GetHeatPumpElectricalLoad(avgTemp, currentTargetTemp);
-                }
 
                 // 1. Differenz berechnen (PV - (Haus + Wärmepumpe))
                 // HIER wurde solarWatt vorher vermisst:
@@ -187,8 +144,8 @@ namespace SolarHouseSimulator
 
                 // 3. Listen befüllen
                 xs.Add(time.ToOADate());
-                ysSolarKw.Add(solarWatt / 1000.0);
-                ysOfenKw.Add(ofenLeistungWatt / 1000.0);
+                ysSolarKw.Add(solarWatt);
+                ysOfenKw.Add(wpLoad + baseLoad / 1000.0);
                 ysBatteryPct.Add((batteryWh / maxBatteryWh) * 100.0);
                 ysTemp.Add(avgTemp);
             }
@@ -196,17 +153,17 @@ namespace SolarHouseSimulator
             double tonnen = totalPelletsKg / 1000.0;
             double volumenM3 = tonnen * 1.5; // 1 Tonne Pellets braucht ca. 1,5 m³ Platz
 
-            MessageBox.Show($"Simulation abgeschlossen:\n" +
-                            $"Pelletverbrauch: {tonnen:F2} Tonnen\n" +
-                            $"Lagerplatz-Bedarf: {volumenM3:F1} m³");
+            //MessageBox.Show($"Simulation abgeschlossen:\n" +
+            //                $"Pelletverbrauch: {tonnen:F2} Tonnen\n" +
+            //                $"Lagerplatz-Bedarf: {volumenM3:F1} m³");
 
             // 3. Gleitender Mittelwert berechnen (Fenster: 24 Stunden)
-            double[] solarMovingAvg = CalculateMovingAverage(ysSolarKw.ToArray(), 24);
+            //double[] solarMovingAvg = new double[0];
 
-            PlotEverything(xs, ysSolarKw, solarMovingAvg ,ysBatteryPct, ysTemp, ysOfenKw);
+            PlotEverything(xs, ysSolarKw, ysBatteryPct, ysTemp, ysOfenKw);
         }
 
-        private void PlotEverything(List<double> xs, List<double> ysSolar, double[] ysSolarAvg, List<double> ysBattery, List<double> ysTemp, List<double> ysOfen)
+        private void PlotEverything(List<double> xs, List<double> ysSolar, List<double> ysBattery, List<double> ysTemp, List<double> ysOfen)
         {
             formsPlot.Plot.Clear();
             double[] xsArray = xs.ToArray();
@@ -218,12 +175,12 @@ namespace SolarHouseSimulator
             sPlot.Color = ScottPlot.Colors.Blue.WithAlpha(0.2);
             sPlot.Axes.YAxis = formsPlot.Plot.Axes.Left;
 
-            // 2. Tagesmittel (Gold, dick)
-            var avgPlot = formsPlot.Plot.Add.Scatter(xsArray, ysSolarAvg);
-            avgPlot.LegendText = "Tagesmittel (kW)";
-            avgPlot.Color = ScottPlot.Colors.Gold;
-            avgPlot.LineWidth = 3;
-            avgPlot.Axes.YAxis = formsPlot.Plot.Axes.Left;
+            //// 2. Tagesmittel (Gold, dick)
+            //var avgPlot = formsPlot.Plot.Add.Scatter(xsArray, ysSolarAvg);
+            //avgPlot.LegendText = "Tagesmittel (kW)";
+            //avgPlot.Color = ScottPlot.Colors.Gold;
+            //avgPlot.LineWidth = 3;
+            //avgPlot.Axes.YAxis = formsPlot.Plot.Axes.Left;
 
             // --- RECHTE ACHSE (% / °C) ---
             // 3. Temperatur (Grau, dünn im Hintergrund)
@@ -243,7 +200,7 @@ namespace SolarHouseSimulator
             // 3. Pelletofen Leistung (Links, kW thermisch)
             // Wir nutzen hier ein "FillY" oder eine Area-Chart, damit es sich abhebt
             var ofenPlot = formsPlot.Plot.Add.Scatter(xsArray, ysOfen.ToArray());
-            ofenPlot.LegendText = "Ofen Ein (kW th)";
+            ofenPlot.LegendText = "Wärmepumpe (kW)";
             ofenPlot.Color = ScottPlot.Colors.Orange.WithAlpha(0.4);
             ofenPlot.LineWidth = 1;
             // Wir füllen die Fläche unter der Kurve aus:
