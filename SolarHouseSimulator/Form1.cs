@@ -1,4 +1,5 @@
 ﻿using ScottPlot;
+using ScottPlot.Interactivity.UserActionResponses;
 using ScottPlot.Palettes;
 using System;
 using System.Collections.Generic;
@@ -115,9 +116,9 @@ namespace SolarHouseSimulator
             List<double> ysTemp = new List<double>();
 
             // Simulations-Variablen
-            double batteryWh = (double)numericUpDownBat.Value / 2; // Start 50%
-            double maxBatteryWh = (double)numericUpDownBat.Value;
-            double totalPelletsKg = 0;
+            double batteryWh = (double)numericUpDownBat.Value / 2 * 1000; // Start 50%
+            double maxBatteryWh = (double)numericUpDownBat.Value * 1000;
+            double StromVerbrauch = 0;
 
             List<double> ysOfenKw = new List<double>();
 
@@ -133,14 +134,26 @@ namespace SolarHouseSimulator
                 double wpLoad = GetHeatPumpElectricalLoad(avgTemp);
 
                 bool istOfenZeit = time.Hour >= 8 && time.Hour < 20;
-                bool brauchtWaerme = (avgTemp < 5.0 || batteryWh < (maxBatteryWh * 0.5));
+                bool strom = batteryWh < (maxBatteryWh * 0.2); //kleiner 20%
 
                 // 1. Differenz berechnen (PV - (Haus + Wärmepumpe))
-                // HIER wurde solarWatt vorher vermisst:
                 double deltaWh = solarWatt - (baseLoad + wpLoad);
 
-                // 2. Akku Update (1h Intervall)
-                batteryWh = Clamp(batteryWh + deltaWh, 0, maxBatteryWh);
+                if(strom)
+                {
+                    if(deltaWh > 0)
+                    {
+                        batteryWh = Clamp(batteryWh + deltaWh, 0, maxBatteryWh);
+                    }
+                    else
+                    {
+                        StromVerbrauch += (baseLoad + wpLoad);
+                    }
+                }
+                else
+                {
+                    batteryWh = Clamp(batteryWh + deltaWh, 0, maxBatteryWh);
+                }
 
                 // 3. Listen befüllen
                 xs.Add(time.ToOADate());
@@ -150,15 +163,7 @@ namespace SolarHouseSimulator
                 ysTemp.Add(avgTemp);
             }
 
-            double tonnen = totalPelletsKg / 1000.0;
-            double volumenM3 = tonnen * 1.5; // 1 Tonne Pellets braucht ca. 1,5 m³ Platz
-
-            //MessageBox.Show($"Simulation abgeschlossen:\n" +
-            //                $"Pelletverbrauch: {tonnen:F2} Tonnen\n" +
-            //                $"Lagerplatz-Bedarf: {volumenM3:F1} m³");
-
-            // 3. Gleitender Mittelwert berechnen (Fenster: 24 Stunden)
-            //double[] solarMovingAvg = new double[0];
+            textBoxNetz.Text = (StromVerbrauch / 1000).ToString("0.00");
 
             PlotEverything(xs, ysSolarKw, ysBatteryPct, ysTemp, ysOfenKw);
         }

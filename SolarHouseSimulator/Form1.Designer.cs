@@ -37,6 +37,8 @@
             this.label1 = new System.Windows.Forms.Label();
             this.numericUpDownPower = new System.Windows.Forms.NumericUpDown();
             this.buttonLoadData = new System.Windows.Forms.Button();
+            this.label4 = new System.Windows.Forms.Label();
+            this.textBoxNetz = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -62,6 +64,8 @@
             // 
             // splitContainer1.Panel1
             // 
+            this.splitContainer1.Panel1.Controls.Add(this.label4);
+            this.splitContainer1.Panel1.Controls.Add(this.textBoxNetz);
             this.splitContainer1.Panel1.Controls.Add(this.label3);
             this.splitContainer1.Panel1.Controls.Add(this.numericUpDownBat);
             this.splitContainer1.Panel1.Controls.Add(this.label2);
@@ -88,19 +92,14 @@
             // 
             // numericUpDownBat
             // 
-            this.numericUpDownBat.Increment = new decimal(new int[] {
-            1000,
-            0,
-            0,
-            0});
             this.numericUpDownBat.Location = new System.Drawing.Point(17, 108);
             this.numericUpDownBat.Maximum = new decimal(new int[] {
-            300000,
+            3000,
             0,
             0,
             0});
             this.numericUpDownBat.Minimum = new decimal(new int[] {
-            1000,
+            1,
             0,
             0,
             0});
@@ -108,7 +107,7 @@
             this.numericUpDownBat.Size = new System.Drawing.Size(118, 20);
             this.numericUpDownBat.TabIndex = 5;
             this.numericUpDownBat.Value = new decimal(new int[] {
-            100000,
+            100,
             0,
             0,
             0});
@@ -135,9 +134,9 @@
             this.label1.AutoSize = true;
             this.label1.Location = new System.Drawing.Point(17, 92);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(89, 13);
+            this.label1.Size = new System.Drawing.Size(95, 13);
             this.label1.TabIndex = 2;
-            this.label1.Text = "Battery Size (Wh)";
+            this.label1.Text = "Battery Size (kWh)";
             // 
             // numericUpDownPower
             // 
@@ -177,6 +176,23 @@
             this.buttonLoadData.UseVisualStyleBackColor = true;
             this.buttonLoadData.Click += new System.EventHandler(this.buttonLoadData_Click);
             // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(17, 238);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(90, 13);
+            this.label4.TabIndex = 8;
+            this.label4.Text = "Netzbezug (kWh)";
+            // 
+            // textBoxNetz
+            // 
+            this.textBoxNetz.Location = new System.Drawing.Point(17, 254);
+            this.textBoxNetz.Name = "textBoxNetz";
+            this.textBoxNetz.ReadOnly = true;
+            this.textBoxNetz.Size = new System.Drawing.Size(118, 20);
+            this.textBoxNetz.TabIndex = 7;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -208,6 +224,8 @@
         private System.Windows.Forms.TextBox textBoxPowerDay;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.NumericUpDown numericUpDownBat;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.TextBox textBoxNetz;
     }
 }
 
