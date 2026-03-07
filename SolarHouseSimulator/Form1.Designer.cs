@@ -42,6 +42,10 @@
             this.buttonRun = new System.Windows.Forms.Button();
             this.label5 = new System.Windows.Forms.Label();
             this.textBoxPellets = new System.Windows.Forms.TextBox();
+            this.label6 = new System.Windows.Forms.Label();
+            this.textBoxOverpower = new System.Windows.Forms.TextBox();
+            this.label7 = new System.Windows.Forms.Label();
+            this.textBoxMining = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -67,6 +71,10 @@
             // 
             // splitContainer1.Panel1
             // 
+            this.splitContainer1.Panel1.Controls.Add(this.label7);
+            this.splitContainer1.Panel1.Controls.Add(this.textBoxMining);
+            this.splitContainer1.Panel1.Controls.Add(this.label6);
+            this.splitContainer1.Panel1.Controls.Add(this.textBoxOverpower);
             this.splitContainer1.Panel1.Controls.Add(this.label5);
             this.splitContainer1.Panel1.Controls.Add(this.textBoxPellets);
             this.splitContainer1.Panel1.Controls.Add(this.buttonRun);
@@ -227,6 +235,40 @@
             this.textBoxPellets.Size = new System.Drawing.Size(118, 20);
             this.textBoxPellets.TabIndex = 10;
             // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Location = new System.Drawing.Point(12, 363);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(95, 13);
+            this.label6.TabIndex = 13;
+            this.label6.Text = "Überschuss (kWh)";
+            // 
+            // textBoxOverpower
+            // 
+            this.textBoxOverpower.Location = new System.Drawing.Point(12, 379);
+            this.textBoxOverpower.Name = "textBoxOverpower";
+            this.textBoxOverpower.ReadOnly = true;
+            this.textBoxOverpower.Size = new System.Drawing.Size(118, 20);
+            this.textBoxOverpower.TabIndex = 12;
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(14, 402);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(70, 13);
+            this.label7.TabIndex = 15;
+            this.label7.Text = "Mining (kWh)";
+            // 
+            // textBoxMining
+            // 
+            this.textBoxMining.Location = new System.Drawing.Point(14, 418);
+            this.textBoxMining.Name = "textBoxMining";
+            this.textBoxMining.ReadOnly = true;
+            this.textBoxMining.Size = new System.Drawing.Size(118, 20);
+            this.textBoxMining.TabIndex = 14;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -263,6 +305,10 @@
         private System.Windows.Forms.Button buttonRun;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.TextBox textBoxPellets;
+        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.TextBox textBoxOverpower;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.TextBox textBoxMining;
     }
 }
 

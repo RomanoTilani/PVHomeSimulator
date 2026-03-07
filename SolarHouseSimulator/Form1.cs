@@ -86,7 +86,7 @@ namespace SolarHouseSimulator
         public bool IsSommer(DateTime time)
         {
             // April (4) bis August (8) inklusiv
-            return time.Month >= 4 && time.Month <= 8;
+            return time.Month >= 3 && time.Month <= 10;
         }
 
         public double GetHeatPumpElectricalLoad(double tempOutside, double tempTarget = 21.0)
@@ -124,25 +124,30 @@ namespace SolarHouseSimulator
             List<double> ysTemp = new List<double>();
             List<double> ysOfenKw = new List<double>();
             List<double> ysWP = new List<double>();
+            List<double> ysMining = new List<double>();
 
             // Simulations-Variablen
             double batteryWh = (double)numericUpDownBat.Value / 2 * 1000; // Start 50%
             double maxBatteryWh = (double)numericUpDownBat.Value * 1000;
             double Heizbedarf = 0;
+            double TotalOverpower = 0;
             double deltaWh;
             bool ofen = false;
+            bool mining1 = false;
+            bool mining2 = false;
+            double minigpower_total = 0;
 
             foreach (var time in sortedTimes)
             {
                 var data = solarData[time];
 
-                // FIX: solarWatt aus dem Tuple extrahieren
                 double solarWatt = data.Power;
-
                 double avgTemp = data.Temp / data.Count;
                 double baseLoad = GetHouseLoadWatt(time);
                 double ofenLoad = 0;
                 double wpLoad = 0;
+                double overpower = 0;
+                double miningpower = 0;
 
                 if (batteryWh < (maxBatteryWh * 0.6))
                 {
@@ -153,11 +158,52 @@ namespace SolarHouseSimulator
                     ofen = false;
                 }
 
+                bool isSommer = IsSommer(time);
+                if (isSommer)
+                {
+                    if (batteryWh > (maxBatteryWh * 0.8))
+                    {
+                        if (avgTemp > 10)
+                        {
+                            mining1 = true;
+                        }
+                        if (avgTemp > 20)
+                        {
+                            mining2 = true;
+                        }
+                    }
+                    if (batteryWh < (maxBatteryWh * 0.3))
+                    {
+                        mining1 = false;
+                    }
+                    if (batteryWh < (maxBatteryWh * 0.5))
+                    {
+                        mining2 = false;
+                    }
+                }
+                else
+                {
+                    mining1 = false;
+                    mining2 = false;
+                }
+
+                if (mining1)
+                {
+                    miningpower = 2000;
+                    minigpower_total += miningpower;
+                    baseLoad += miningpower;
+                }
+                if (mining2)
+                {
+                    miningpower += 0;
+                    minigpower_total += miningpower;
+                    baseLoad += miningpower;
+                }
 
                 if (ofen)
                 {
                     deltaWh = solarWatt - (baseLoad);
-                    batteryWh = Clamp(batteryWh + deltaWh, 0, maxBatteryWh);
+                    batteryWh = LoadUnloadBat(deltaWh, batteryWh, maxBatteryWh, ref overpower);
 
                     ofenLoad = GetThermalNeedHouse(avgTemp);
                     Heizbedarf += ofenLoad;
@@ -167,8 +213,10 @@ namespace SolarHouseSimulator
                     wpLoad = GetHeatPumpElectricalLoad(avgTemp);
                     // 1. Differenz berechnen (PV - (Haus + Wärmepumpe))
                     deltaWh = solarWatt - (baseLoad + wpLoad);
-                    batteryWh = Clamp(batteryWh + deltaWh, 0, maxBatteryWh);
+                    batteryWh = LoadUnloadBat(deltaWh, batteryWh, maxBatteryWh, ref overpower);
                 }
+
+                TotalOverpower += overpower;
 
                 // 3. Listen befüllen
                 xs.Add(time.ToOADate());
@@ -177,15 +225,40 @@ namespace SolarHouseSimulator
                 ysWP.Add(wpLoad);
                 ysBatteryPct.Add((batteryWh / maxBatteryWh) * 100.0);
                 ysTemp.Add(avgTemp);
+                ysMining.Add(miningpower);
             }
 
             textBoxNetz.Text = (Heizbedarf / 1000).ToString("0.00");
-            textBoxPellets.Text = ((Heizbedarf / 1000) / 4.8).ToString("0.0");
+            textBoxPellets.Text = ((Heizbedarf / 1000) / 4.5).ToString("0.0");
+            textBoxOverpower.Text = (TotalOverpower / 1000).ToString("0.00");
+            textBoxMining.Text = (minigpower_total / 1000).ToString("0.00");
 
-            PlotEverything(xs, ysSolarKw, ysBatteryPct, ysTemp, ysOfenKw, ysWP);
+            PlotEverything(xs, ysSolarKw, ysBatteryPct, ysTemp, ysOfenKw, ysWP, ysMining);
         }
 
-        private void PlotEverything(List<double> xs, List<double> ysSolar, List<double> ysBattery, List<double> ysTemp, List<double> ysOfen, List<double> ysWp)
+        double LoadUnloadBat(double Input, double batteryWh, double maxBatteryWh, ref double overpower)
+        {
+            overpower = Input;
+
+            batteryWh += Input;
+            if (batteryWh >= maxBatteryWh)
+            {
+                overpower = batteryWh - maxBatteryWh;
+                batteryWh = maxBatteryWh;
+            }
+            else
+            {
+                overpower = 0;
+            }
+            if(batteryWh <= 0)
+            {
+                batteryWh = 0;
+            }
+
+            return batteryWh;
+        }
+
+        private void PlotEverything(List<double> xs, List<double> ysSolar, List<double> ysBattery, List<double> ysTemp, List<double> ysOfen, List<double> ysWp, List<double> ysMining)
         {
             formsPlot.Plot.Clear();
             double[] xsArray = xs.ToArray();
@@ -230,6 +303,14 @@ namespace SolarHouseSimulator
             // Wir füllen die Fläche unter der Kurve aus:
             wpPlot.FillY = true;
             wpPlot.Axes.YAxis = formsPlot.Plot.Axes.Left;
+
+            var minPlot = formsPlot.Plot.Add.Scatter(xsArray, ysMining.ToArray());
+            minPlot.LegendText = "Mining (kW)";
+            minPlot.Color = ScottPlot.Colors.DarkGreen.WithAlpha(0.4);
+            minPlot.LineWidth = 1;
+            // Wir füllen die Fläche unter der Kurve aus:
+            minPlot.FillY = true;
+            minPlot.Axes.YAxis = formsPlot.Plot.Axes.Left;
 
             // --- ACHSEN-SETUP ---
             formsPlot.Plot.Axes.Bottom.TickGenerator = new ScottPlot.TickGenerators.DateTimeAutomatic();
