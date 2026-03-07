@@ -30,6 +30,8 @@
         {
             this.formsPlot = new ScottPlot.WinForms.FormsPlot();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
+            this.label4 = new System.Windows.Forms.Label();
+            this.textBoxNetz = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.numericUpDownBat = new System.Windows.Forms.NumericUpDown();
             this.label2 = new System.Windows.Forms.Label();
@@ -37,8 +39,9 @@
             this.label1 = new System.Windows.Forms.Label();
             this.numericUpDownPower = new System.Windows.Forms.NumericUpDown();
             this.buttonLoadData = new System.Windows.Forms.Button();
-            this.label4 = new System.Windows.Forms.Label();
-            this.textBoxNetz = new System.Windows.Forms.TextBox();
+            this.buttonRun = new System.Windows.Forms.Button();
+            this.label5 = new System.Windows.Forms.Label();
+            this.textBoxPellets = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -64,6 +67,9 @@
             // 
             // splitContainer1.Panel1
             // 
+            this.splitContainer1.Panel1.Controls.Add(this.label5);
+            this.splitContainer1.Panel1.Controls.Add(this.textBoxPellets);
+            this.splitContainer1.Panel1.Controls.Add(this.buttonRun);
             this.splitContainer1.Panel1.Controls.Add(this.label4);
             this.splitContainer1.Panel1.Controls.Add(this.textBoxNetz);
             this.splitContainer1.Panel1.Controls.Add(this.label3);
@@ -81,10 +87,27 @@
             this.splitContainer1.SplitterDistance = 173;
             this.splitContainer1.TabIndex = 1;
             // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(14, 285);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(62, 13);
+            this.label4.TabIndex = 8;
+            this.label4.Text = "Ofen (kWh)";
+            // 
+            // textBoxNetz
+            // 
+            this.textBoxNetz.Location = new System.Drawing.Point(14, 301);
+            this.textBoxNetz.Name = "textBoxNetz";
+            this.textBoxNetz.ReadOnly = true;
+            this.textBoxNetz.Size = new System.Drawing.Size(118, 20);
+            this.textBoxNetz.TabIndex = 7;
+            // 
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(17, 139);
+            this.label3.Location = new System.Drawing.Point(14, 186);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(132, 13);
             this.label3.TabIndex = 6;
@@ -92,7 +115,7 @@
             // 
             // numericUpDownBat
             // 
-            this.numericUpDownBat.Location = new System.Drawing.Point(17, 108);
+            this.numericUpDownBat.Location = new System.Drawing.Point(14, 155);
             this.numericUpDownBat.Maximum = new decimal(new int[] {
             3000,
             0,
@@ -115,7 +138,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(17, 189);
+            this.label2.Location = new System.Drawing.Point(14, 236);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(97, 13);
             this.label2.TabIndex = 4;
@@ -123,7 +146,7 @@
             // 
             // textBoxPowerDay
             // 
-            this.textBoxPowerDay.Location = new System.Drawing.Point(17, 205);
+            this.textBoxPowerDay.Location = new System.Drawing.Point(14, 252);
             this.textBoxPowerDay.Name = "textBoxPowerDay";
             this.textBoxPowerDay.ReadOnly = true;
             this.textBoxPowerDay.Size = new System.Drawing.Size(118, 20);
@@ -132,7 +155,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(17, 92);
+            this.label1.Location = new System.Drawing.Point(14, 139);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(95, 13);
             this.label1.TabIndex = 2;
@@ -145,7 +168,7 @@
             0,
             0,
             0});
-            this.numericUpDownPower.Location = new System.Drawing.Point(17, 155);
+            this.numericUpDownPower.Location = new System.Drawing.Point(14, 202);
             this.numericUpDownPower.Maximum = new decimal(new int[] {
             10000,
             0,
@@ -176,22 +199,33 @@
             this.buttonLoadData.UseVisualStyleBackColor = true;
             this.buttonLoadData.Click += new System.EventHandler(this.buttonLoadData_Click);
             // 
-            // label4
+            // buttonRun
             // 
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(17, 238);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(90, 13);
-            this.label4.TabIndex = 8;
-            this.label4.Text = "Netzbezug (kWh)";
+            this.buttonRun.Enabled = false;
+            this.buttonRun.Location = new System.Drawing.Point(17, 78);
+            this.buttonRun.Name = "buttonRun";
+            this.buttonRun.Size = new System.Drawing.Size(126, 40);
+            this.buttonRun.TabIndex = 9;
+            this.buttonRun.Text = "Simulate";
+            this.buttonRun.UseVisualStyleBackColor = true;
+            this.buttonRun.Click += new System.EventHandler(this.buttonRun_Click);
             // 
-            // textBoxNetz
+            // label5
             // 
-            this.textBoxNetz.Location = new System.Drawing.Point(17, 254);
-            this.textBoxNetz.Name = "textBoxNetz";
-            this.textBoxNetz.ReadOnly = true;
-            this.textBoxNetz.Size = new System.Drawing.Size(118, 20);
-            this.textBoxNetz.TabIndex = 7;
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(14, 324);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(59, 13);
+            this.label5.TabIndex = 11;
+            this.label5.Text = "Pellets (kg)";
+            // 
+            // textBoxPellets
+            // 
+            this.textBoxPellets.Location = new System.Drawing.Point(14, 340);
+            this.textBoxPellets.Name = "textBoxPellets";
+            this.textBoxPellets.ReadOnly = true;
+            this.textBoxPellets.Size = new System.Drawing.Size(118, 20);
+            this.textBoxPellets.TabIndex = 10;
             // 
             // Form1
             // 
@@ -226,6 +260,9 @@
         private System.Windows.Forms.NumericUpDown numericUpDownBat;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.TextBox textBoxNetz;
+        private System.Windows.Forms.Button buttonRun;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.TextBox textBoxPellets;
     }
 }
 
